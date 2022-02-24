@@ -7,9 +7,11 @@ Author:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import gensim
 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from util import masked_softmax
+from args import get_setup_args
 
 
 class Embedding(nn.Module):
@@ -25,14 +27,30 @@ class Embedding(nn.Module):
     """
     def __init__(self, word_vectors, hidden_size, drop_prob):
         super(Embedding, self).__init__()
+
+        #word-level
         self.drop_prob = drop_prob
         self.embed = nn.Embedding.from_pretrained(word_vectors)
         self.proj = nn.Linear(word_vectors.size(1), hidden_size, bias=False)
         self.hwy = HighwayEncoder(2, hidden_size)
+        #char level
+        JSON_LOAD = gensim.models.KeyedVectors.load_word2vec_format('./data/char_emb.json')
+        self.char_emb = nn.Embedding.from_pretrained(torch.FloatTensor(JSON_LOAD.vectors))
+        args_ = get_setup_args()
+        self.char_conv_layer = nn.Conv2d(1, 100, (args_.char_dim, 5))
 
     def forward(self, x):
         emb = self.embed(x)   # (batch_size, seq_len, embed_size)
         emb = F.dropout(emb, self.drop_prob, self.training)
+
+
+        x = self.dropout(self.embed(x))
+        x = x.view(-1, self.char_emb_dim, x.size(2)).unsqueeze(1)
+        x = self.char_conv_layer(x).squeeze()
+        x = F.max_pool1d(x, x.size(2)).squeeze()
+        x = x.view(x.shape[0], -1, self.char_channel)
+        #concat
+        emb = torch.cat((x, emb), 2)
         emb = self.proj(emb)  # (batch_size, seq_len, hidden_size)
         emb = self.hwy(emb)   # (batch_size, seq_len, hidden_size)
 
@@ -59,6 +77,7 @@ class HighwayEncoder(nn.Module):
                                     for _ in range(num_layers)])
 
     def forward(self, x):
+        #x becomes concat of char and word embeds
         for gate, transform in zip(self.gates, self.transforms):
             # Shapes of g, t, and x are all (batch_size, seq_len, hidden_size)
             g = torch.sigmoid(gate(x))
