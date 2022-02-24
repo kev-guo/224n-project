@@ -7,7 +7,8 @@ Author:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import gensim
+import util
+#import gensim
 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from util import masked_softmax
@@ -34,17 +35,20 @@ class Embedding(nn.Module):
         self.proj = nn.Linear(word_vectors.size(1), hidden_size, bias=False)
         self.hwy = HighwayEncoder(2, hidden_size)
         #char level
-        JSON_LOAD = gensim.models.KeyedVectors.load_word2vec_format('./data/char_emb.json')
-        self.char_emb = nn.Embedding.from_pretrained(torch.FloatTensor(JSON_LOAD.vectors))
+        # JSON_LOAD = gensim.models.KeyedVectors.load_word2vec_format('./data/char_emb.json')
+        # self.char_emb = nn.Embedding.from_pretrained(torch.FloatTensor(JSON_LOAD.vectors))
         args_ = get_setup_args()
+        char_vecs= util.torch_from_json(args_.word_emb_file)
+        self.char_emb = nn.Embedding.from_pretrained(char_vecs)
         self.char_conv_layer = nn.Conv2d(1, 100, (args_.char_dim, 5))
 
     def forward(self, x):
-        emb = self.embed(x)   # (batch_size, seq_len, embed_size)
+        x_copy = torch.clone(x)
+        emb = self.embed(x_copy)   # (batch_size, seq_len, embed_size)
         emb = F.dropout(emb, self.drop_prob, self.training)
 
 
-        x = self.dropout(self.embed(x))
+        x = self.dropout(self.char_emb(x))
         x = x.view(-1, self.char_emb_dim, x.size(2)).unsqueeze(1)
         x = self.char_conv_layer(x).squeeze()
         x = F.max_pool1d(x, x.size(2)).squeeze()
