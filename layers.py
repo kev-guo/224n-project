@@ -34,17 +34,21 @@ class Embedding(nn.Module):
         self.embed = nn.Embedding.from_pretrained(word_vectors)
         self.proj = nn.Linear(word_vectors.size(1), hidden_size, bias=False)
         self.hwy = HighwayEncoder(2, hidden_size)
-        #char level
+        #char-level
+        #load char embs options 1
         # JSON_LOAD = gensim.models.KeyedVectors.load_word2vec_format('./data/char_emb.json')
         # self.char_emb = nn.Embedding.from_pretrained(torch.FloatTensor(JSON_LOAD.vectors))
-        args_ = get_setup_args()
-        char_vecs= util.torch_from_json(args_.word_emb_file)
+        #load char embs option 2
+        # args_ = get_setup_args()
+        # char_vecs = util.torch_from_json(args_.word_emb_file)
+        char_vecs = util.torch_from_json('./data/char_emb.json')
         self.char_emb = nn.Embedding.from_pretrained(char_vecs)
-        self.char_conv_layer = nn.Conv2d(1, 100, (args_.char_dim, 5))
+        #char_dim = 64
+        self.char_conv_layer = nn.Conv2d(1, 100, (64, 5))
 
     def forward(self, x):
-        x_copy = torch.clone(x)
-        emb = self.embed(x_copy)   # (batch_size, seq_len, embed_size)
+        #x_copy = torch.clone(x)
+        emb = self.embed(x)   # (batch_size, seq_len, embed_size)
         emb = F.dropout(emb, self.drop_prob, self.training)
 
 
