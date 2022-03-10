@@ -26,43 +26,48 @@ class Embedding(nn.Module):
         hidden_size (int): Size of hidden activations.
         drop_prob (float): Probability of zero-ing out activations
     """
-    def __init__(self, word_vectors, hidden_size, drop_prob):
+    def __init__(self, word_vectors, char_vectors, hidden_size, drop_prob):
         super(Embedding, self).__init__()
 
         #word-level
         self.drop_prob = drop_prob
         self.embed = nn.Embedding.from_pretrained(word_vectors)
-        self.proj = nn.Linear(word_vectors.size(1), hidden_size, bias=False)
+        self.proj = nn.Linear(word_vectors.size(1), hidden_size * 2, bias=False) #change to hidden_size*2
         self.hwy = HighwayEncoder(2, hidden_size)
         #char-level
-        #load char embs options 1
-        # JSON_LOAD = gensim.models.KeyedVectors.load_word2vec_format('./data/char_emb.json')
-        # self.char_emb = nn.Embedding.from_pretrained(torch.FloatTensor(JSON_LOAD.vectors))
-        #load char embs option 2
-        # args_ = get_setup_args()
-        # char_vecs = util.torch_from_json(args_.word_emb_file)
-        char_vecs = util.torch_from_json('./data/char_emb.json')
-        self.char_emb = nn.Embedding.from_pretrained(char_vecs)
+        self.char_emb = nn.Embedding.from_pretrained(char_vectors)
         #char_dim = 64
         self.char_conv_layer = nn.Conv2d(1, 100, (64, 5))
+        self.char_proj = nn.Linear(char_vectors.size(1), hidden_size * 2, bias=False)
 
-    def forward(self, x):
-        #x_copy = torch.clone(x)
+    def forward(self, x, y):
         emb = self.embed(x)   # (batch_size, seq_len, embed_size)
+        #batch size = 64 seq_len = 401 embed_size = 200
         emb = F.dropout(emb, self.drop_prob, self.training)
 
+        char_emb = self.char_emb(y)
+        #print(char_emb.size())
+        char_emb = F.dropout(char_emb, self.drop_prob, self.training)
+        #print(char_emb.size())
+        char_emb = char_emb.view(-1, char_emb.size(3), char_emb.size(2)).unsqueeze(1)
+        #print(char_emb.size())
 
-        x = self.dropout(self.char_emb(x))
-        x = x.view(-1, self.char_emb_dim, x.size(2)).unsqueeze(1)
-        x = self.char_conv_layer(x).squeeze()
-        x = F.max_pool1d(x, x.size(2)).squeeze()
-        x = x.view(x.shape[0], -1, self.char_channel)
-        #concat
-        emb = torch.cat((x, emb), 2)
+        #input: batch_size, char_dim, max sequence length, max number of characters per word
+        print(char_emb.size())
+        char_emb = self.char_conv_layer(char_emb).squeeze(1)
+        print(char_emb.size())
+        char_emb = F.max_pool2d(char_emb, char_emb.size(2)).squeeze(2)
+        print(char_emb.size())
+        char_emb.view(y.size(0),-1,100)
+
         emb = self.proj(emb)  # (batch_size, seq_len, hidden_size)
-        emb = self.hwy(emb)   # (batch_size, seq_len, hidden_size)
+        char_emb = self.char_proj(char_emb)
+        print(char_emb.size())
+        # concat
+        new_emb = torch.cat((char_emb, emb), -1)
+        new_emb = self.hwy(new_emb)   # (batch_size, seq_len, hidden_size)
 
-        return emb
+        return new_emb
 
 
 class HighwayEncoder(nn.Module):
