@@ -12,7 +12,6 @@ import util
 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from util import masked_softmax
-from args import get_setup_args
 
 
 class Embedding(nn.Module):
@@ -32,13 +31,13 @@ class Embedding(nn.Module):
         #word-level
         self.drop_prob = drop_prob
         self.embed = nn.Embedding.from_pretrained(word_vectors)
-        self.proj = nn.Linear(word_vectors.size(1), hidden_size * 2, bias=False) #change to hidden_size*2
-        self.hwy = HighwayEncoder(2, hidden_size)
+        self.proj = nn.Linear(word_vectors.size(1), hidden_size, bias=False) #change to hidden_size*2
+        self.hwy = HighwayEncoder(2, 2 * hidden_size)
         #char-level
         self.char_emb = nn.Embedding.from_pretrained(char_vectors)
         #char_dim = 64
         self.char_conv_layer = nn.Conv2d(1, 100, (64, 5))
-        self.char_proj = nn.Linear(char_vectors.size(1), hidden_size * 2, bias=False)
+        #self.char_proj = nn.Linear(char_vectors.size(1), hidden_size * 2, bias=False)
 
     def forward(self, x, y):
         emb = self.embed(x)   # (batch_size, seq_len, embed_size)
@@ -52,17 +51,17 @@ class Embedding(nn.Module):
         char_emb = char_emb.view(-1, char_emb.size(3), char_emb.size(2)).unsqueeze(1)
         #print(char_emb.size())
 
-        #input: batch_size, char_dim, max sequence length, max number of characters per word
-        print(char_emb.size())
-        char_emb = self.char_conv_layer(char_emb).squeeze(1)
-        print(char_emb.size())
-        char_emb = F.max_pool2d(char_emb, char_emb.size(2)).squeeze(2)
-        print(char_emb.size())
-        char_emb.view(y.size(0),-1,100)
 
+        #input: batch_size, char_dim, max sequence length, max number of characters per word
+        #print(char_emb.size())
+        char_emb = self.char_conv_layer(char_emb).squeeze()
+        #print(char_emb.size())
+        char_emb = F.max_pool1d(char_emb, char_emb.size(2)).squeeze()
+        #print(char_emb.size())
+        char_emb = char_emb.view(x.size(0),-1,100)
         emb = self.proj(emb)  # (batch_size, seq_len, hidden_size)
-        char_emb = self.char_proj(char_emb)
-        print(char_emb.size())
+        #char_emb = self.char_proj(char_emb)
+        #print(char_emb.size())
         # concat
         new_emb = torch.cat((char_emb, emb), -1)
         new_emb = self.hwy(new_emb)   # (batch_size, seq_len, hidden_size)
