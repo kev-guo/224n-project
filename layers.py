@@ -13,6 +13,21 @@ import util
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from util import masked_softmax
 
+class DynamicCoattention(nn.Module):
+    def __init__(self, hidden_size, drop_prob, num_layers):
+        super(DynamicCoattention, self)._init__()
+        self.drop_prob = drop_prob
+        self.projection = nn.Linear(hidden_size, hidden_size)
+        sentinel_shape = torch.zeros(1, hidden_size)
+        self.cs = nn.Parameter(torch.zeros_like(sentinel_shape))
+        self.qs = nn.Parameter(torch.zeros_like(sentinel_shape))
+        self.rnn = nn.LSTM(2*hidden_size, 2*hidden_size, num_layers,
+                           batch_first=True,
+                           bidirectional=True,
+                           dropout=drop_prob)
+    def forward(self, c, q, c_mask, q_mask):
+        q_prime = torch.tanh(self.projection(q))
+
 
 class Embedding(nn.Module):
     """Embedding layer used by BiDAF, without the character-level component.
