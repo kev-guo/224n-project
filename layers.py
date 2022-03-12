@@ -40,7 +40,7 @@ class DynamicCoattention(nn.Module):
         self.q_sentinel = torch.stack(self.list_qs)
         #print(self.c_sentinel.size())
         c_prime = torch.cat((c, self.c_sentinel), dim=1)
-        q_prime = torch.cat((q, self.q_sentinel), dim=1)
+        q_prime = torch.cat((q_prime, self.q_sentinel), dim=1)
         #print(c_prime.size())
         #print(q_prime.size())
 
@@ -48,8 +48,20 @@ class DynamicCoattention(nn.Module):
         #print(L.size())
 
         #create masks
-        q_mask = torch.cat([q_mask, torch.ones(batch_size, 1).byte()], dim=1)
-        pass
+        q_mask = torch.cat([q_mask, torch.ones(batch_size, 1)], dim=1)
+        q_mask = q_mask.view(batch_size, 1, q.size(1) + 1)
+        #print(q_mask.size())
+        c_mask = torch.cat([c_mask, torch.ones(batch_size, 1)], dim=1)
+        c_mask = c_mask.view(batch_size, c.size(1) + 1, 1)
+
+        s1 = masked_softmax(L, q_mask, dim=2)  # (batch_size, c_len, q_len)
+        s2 = masked_softmax(L, c_mask, dim=1)  # (batch_size, c_len, q_len)
+
+        a_i = torch.bmm(s1, q_prime)
+        b_j = torch.bmm(torch.transpose(s2, 1, 2), c_prime)
+        s_i = torch.bmm(s1, b_j)
+
+        return torch.cat([s_i[:, :c.size(1), :], a_i[:, :c.size(1), :]], dim=2)
 
 
 class Embedding(nn.Module):
