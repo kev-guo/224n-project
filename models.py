@@ -44,6 +44,9 @@ class BiDAF(nn.Module):
         self.att = layers.BiDAFAttention(hidden_size=2 * hidden_size,
                                          drop_prob=drop_prob)
 
+        self.coatt = layers.DynamicCoattention(hidden_size=2 * hidden_size,
+                                         drop_prob=drop_prob)
+
         self.mod = layers.RNNEncoder(input_size=8 * hidden_size,
                                      hidden_size=hidden_size,
                                      num_layers=2,
@@ -63,11 +66,14 @@ class BiDAF(nn.Module):
         c_enc = self.enc(c_emb, c_len)    # (batch_size, c_len, 2 * hidden_size)
         q_enc = self.enc(q_emb, q_len)    # (batch_size, q_len, 2 * hidden_size)
 
-        att = self.att(c_enc, q_enc,
-                       c_mask, q_mask)    # (batch_size, c_len, 8 * hidden_size)
+        # att = self.att(c_enc, q_enc,
+        #                c_mask, q_mask)    # (batch_size, c_len, 8 * hidden_size)
 
-        mod = self.mod(att, c_len)        # (batch_size, c_len, 2 * hidden_size)
+        coatt = self.att(c_enc, q_enc,
+                       c_mask, q_mask)
 
-        out = self.out(att, mod, c_mask)  # 2 tensors, each (batch_size, c_len)
+        mod = self.mod(coatt, c_len)        # (batch_size, c_len, 2 * hidden_size)
+
+        out = self.out(coatt, mod, c_mask)  # 2 tensors, each (batch_size, c_len)
 
         return out
