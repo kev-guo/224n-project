@@ -27,6 +27,7 @@ class DynamicCoattention(nn.Module):
                            batch_first=True,
                            bidirectional=True,
                            dropout=drop_prob)
+        self.device, _ = util.get_available_devices()
     def forward(self, c, q, c_mask, q_mask):
         q_prime = torch.tanh(self.projection(q))
         #print(q_prime.size())
@@ -48,10 +49,10 @@ class DynamicCoattention(nn.Module):
         #print(L.size())
 
         #create masks
-        q_mask = torch.cat([q_mask, torch.ones(batch_size, 1)], dim=1)
+        q_mask = torch.cat([q_mask, torch.ones(batch_size, 1)], dim=1).to(self.device)
         q_mask = q_mask.view(batch_size, 1, q.size(1) + 1)
         #print(q_mask.size())
-        c_mask = torch.cat([c_mask, torch.ones(batch_size, 1)], dim=1)
+        c_mask = torch.cat([c_mask, torch.ones(batch_size, 1)], dim=1).to(self.device)
         c_mask = c_mask.view(batch_size, c.size(1) + 1, 1)
 
         s1 = masked_softmax(L, q_mask, dim=2)  # (batch_size, c_len, q_len)
