@@ -45,7 +45,8 @@ class BiDAF(nn.Module):
                                          drop_prob=drop_prob)
 
         self.coatt = layers.DynamicCoattention(hidden_size=2 * hidden_size,
-                                         drop_prob=drop_prob)
+                                         drop_prob=drop_prob,
+                                               num_layers=1)
 
         self.mod = layers.RNNEncoder(input_size=8 * hidden_size,
                                      hidden_size=hidden_size,

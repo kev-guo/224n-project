@@ -15,7 +15,7 @@ from util import masked_softmax
 
 class DynamicCoattention(nn.Module):
     def __init__(self, hidden_size, drop_prob, num_layers):
-        super(DynamicCoattention, self)._init__()
+        super(DynamicCoattention, self).__init__()
         self.drop_prob = drop_prob
         self.projection = nn.Linear(hidden_size, hidden_size)
         sentinel_shape = torch.zeros(1, hidden_size)
@@ -46,6 +46,10 @@ class DynamicCoattention(nn.Module):
 
         L = torch.bmm(c_prime, q_prime.transpose(1, 2))
         #print(L.size())
+
+        #create masks
+        q_mask = torch.cat([q_mask, torch.ones(batch_size, 1).byte()], dim=1)
+        pass
 
 
 class Embedding(nn.Module):
