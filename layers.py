@@ -19,14 +19,33 @@ class DynamicCoattention(nn.Module):
         self.drop_prob = drop_prob
         self.projection = nn.Linear(hidden_size, hidden_size)
         sentinel_shape = torch.zeros(1, hidden_size)
-        self.cs = nn.Parameter(torch.zeros_like(sentinel_shape))
-        self.qs = nn.Parameter(torch.zeros_like(sentinel_shape))
+        self.cs = nn.Parameter(torch.zeros_like(sentinel_shape)) #sentinel vectors
+        self.qs = nn.Parameter(torch.zeros_like(sentinel_shape)) #sentinel vectors
+        self.list_cs = []
+        self.list_qs = []
         self.rnn = nn.LSTM(2*hidden_size, 2*hidden_size, num_layers,
                            batch_first=True,
                            bidirectional=True,
                            dropout=drop_prob)
     def forward(self, c, q, c_mask, q_mask):
         q_prime = torch.tanh(self.projection(q))
+        #print(q_prime.size())
+
+        batch_size = c.size(0)
+        #print(batch_size)
+        for _ in range(batch_size):
+            self.list_cs.append(self.cs)
+            self.list_qs.append(self.qs)
+        self.c_sentinel = torch.stack(self.list_cs)
+        self.q_sentinel = torch.stack(self.list_qs)
+        #print(self.c_sentinel.size())
+        c_prime = torch.cat((c, self.c_sentinel), dim=1)
+        q_prime = torch.cat((q, self.q_sentinel), dim=1)
+        #print(c_prime.size())
+        #print(q_prime.size())
+
+        L = torch.bmm(c_prime, q_prime.transpose(1, 2))
+        #print(L.size())
 
 
 class Embedding(nn.Module):
