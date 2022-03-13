@@ -99,7 +99,7 @@ def get_train_args():
                         help='Number of steps between successive evaluations.')
     parser.add_argument('--lr',
                         type=float,
-                        default=0.5,
+                        default=0.6,
                         help='Learning rate.')
     parser.add_argument('--l2_wd',
                         type=float,
@@ -111,7 +111,7 @@ def get_train_args():
                         help='Number of epochs for which to train. Negative means forever.')
     parser.add_argument('--drop_prob',
                         type=float,
-                        default=0.2,
+                        default=0.15,
                         help='Probability of zeroing an activation in dropout layers.')
     parser.add_argument('--metric_name',
                         type=str,
