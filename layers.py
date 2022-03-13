@@ -16,7 +16,6 @@ from util import masked_softmax
 class DynamicCoattention(nn.Module):
     def __init__(self, hidden_size, drop_prob, num_layers):
         super(DynamicCoattention, self).__init__()
-        self.drop_prob = drop_prob
         self.projection = nn.Linear(hidden_size, hidden_size)
         sentinel_shape = torch.zeros(1, hidden_size)
         self.cs = nn.Parameter(torch.zeros_like(sentinel_shape)) #sentinel vectors
@@ -29,9 +28,6 @@ class DynamicCoattention(nn.Module):
                            dropout=drop_prob)
         self.device, _ = util.get_available_devices()
     def forward(self, c, q, c_mask, q_mask):
-        q_prime = torch.tanh(self.projection(q))
-        #print(q_prime.size())
-
         batch_size = c.size(0)
         #print(batch_size)
         for _ in range(batch_size):
@@ -40,8 +36,8 @@ class DynamicCoattention(nn.Module):
         self.c_sentinel = torch.stack(self.list_cs)
         self.q_sentinel = torch.stack(self.list_qs)
         #print(self.c_sentinel.size())
-        c_prime = torch.cat((c, self.c_sentinel), dim=1)
-        q_prime = torch.cat((q_prime, self.q_sentinel), dim=1)
+        c_prime = torch.cat((self.c_sentinel, c), dim=1)
+        q_prime = torch.cat((self.q_sentinel, torch.tanh(self.projection(q))), dim=1)
         #print(c_prime.size())
         #print(q_prime.size())
 
@@ -49,10 +45,10 @@ class DynamicCoattention(nn.Module):
         #print(L.size())
 
         #create masks
-        q_mask = torch.cat([q_mask, torch.ones(batch_size, 1)], dim=1).to(self.device)
+        q_mask = torch.cat((torch.ones(batch_size, 1), q_mask), dim=1)
         q_mask = q_mask.view(batch_size, 1, q.size(1) + 1)
         #print(q_mask.size())
-        c_mask = torch.cat([c_mask, torch.ones(batch_size, 1)], dim=1).to(self.device)
+        c_mask = torch.cat((torch.ones(batch_size, 1), c_mask), dim=1)
         c_mask = c_mask.view(batch_size, c.size(1) + 1, 1)
 
         s1 = masked_softmax(L, q_mask, dim=2)  # (batch_size, c_len, q_len)
@@ -62,7 +58,7 @@ class DynamicCoattention(nn.Module):
         b_j = torch.bmm(torch.transpose(s2, 1, 2), c_prime)
         s_i = torch.bmm(s1, b_j)
 
-        return torch.cat([s_i[:, :c.size(1), :], a_i[:, :c.size(1), :]], dim=2)
+        return torch.cat((s_i[:, :c.size(1), :], a_i[:, :c.size(1), :]), dim=2)
 
 
 class Embedding(nn.Module):
