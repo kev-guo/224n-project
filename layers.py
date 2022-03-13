@@ -26,7 +26,6 @@ class DynamicCoattention(nn.Module):
                            batch_first=True,
                            bidirectional=True,
                            dropout=drop_prob)
-        self.device, _ = util.get_available_devices()
     def forward(self, c, q, c_mask, q_mask):
         batch_size = c.size(0)
         #print(batch_size)
