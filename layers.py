@@ -22,6 +22,7 @@ class DynamicCoattention(nn.Module):
         self.qs = nn.Parameter(torch.zeros_like(sentinel_shape)) #sentinel vectors
         self.list_cs = []
         self.list_qs = []
+        self.device, _ = util.get_available_devices()
         self.rnn = nn.LSTM(2*hidden_size, 2*hidden_size, num_layers,
                            batch_first=True,
                            bidirectional=True,
@@ -44,10 +45,10 @@ class DynamicCoattention(nn.Module):
         #print(L.size())
 
         #create masks
-        q_mask = torch.cat((torch.ones(batch_size, 1), q_mask), dim=1)
+        q_mask = torch.cat((torch.ones(batch_size, 1), q_mask), dim=1).to(device)
         q_mask = q_mask.view(batch_size, 1, q.size(1) + 1)
         #print(q_mask.size())
-        c_mask = torch.cat((torch.ones(batch_size, 1), c_mask), dim=1)
+        c_mask = torch.cat((torch.ones(batch_size, 1), c_mask), dim=1).to(device)
         c_mask = c_mask.view(batch_size, c.size(1) + 1, 1)
 
         s1 = masked_softmax(L, q_mask, dim=2)  # (batch_size, c_len, q_len)
